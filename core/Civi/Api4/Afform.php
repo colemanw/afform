@@ -2,11 +2,14 @@
 
 namespace Civi\Api4;
 
-use Civi\Api4\Action\Afform\Create;
-use Civi\Api4\Action\Afform\Delete;
-use Civi\Api4\Action\Afform\Get;
-use Civi\Api4\Action\Afform\Revert;
-use Civi\Api4\Action\Afform\Update;
+use Civi\Afform\AfformRepo;
+use Civi\Api4\Action\GetActions;
+use Civi\Api4\ActionInterface\QueryInterface;
+use Civi\Api4\ActionInterface\GetInterface;
+use Civi\Api4\ActionInterface\UpdateInterface;
+use Civi\Api4\BasicAction\BasicBulkTask;
+use Civi\Api4\BasicAction\BasicGet;
+use Civi\Api4\BasicAction\BasicUpdate;
 
 /**
  * Class Afform
@@ -15,39 +18,40 @@ use Civi\Api4\Action\Afform\Update;
 class Afform {
 
   /**
-   * @return \Civi\Api4\Action\Afform\Get
+   * @return GetInterface
    */
   public static function get() {
-    return new Get('Afform');
+    // Decorate AfformRepo::getAll with APIv4 filtering.
+    $repo = new AfformRepo();
+    return new BasicGet('Afform', [$repo, 'getAll']);
   }
 
   /**
-   * @return \Civi\Api4\Action\Afform\Revert
+   * @return GetActions
+   */
+  public static function getActions() {
+    return new GetActions('Afform');
+  }
+
+  /**
+   * @return QueryInterface
    */
   public static function revert() {
-    return new Revert('Afform');
+    $repo = new AfformRepo();
+    return new BasicBulkTask('Afform', 'name',
+      [$repo, 'getAll'],
+      [$repo, 'revert']);
   }
 
   /**
-   * @return \Civi\Api4\Action\Afform\Update
+   * @return UpdateInterface
    */
   public static function update() {
-    return new Update('Afform');
+    $repo = new AfformRepo();
+    return new BasicUpdate('Afform', 'name',
+      [$repo, 'getAll'],
+      [$repo, 'save']);
   }
-
-  //  /**
-  //   * @return \Civi\Api4\Action\Afform\Create
-  //   */
-  //  public static function create() {
-  //    return new Create('Afform');
-  //  }
-
-  //  /**
-  //   * @return \Civi\Api4\Action\Afform\Delete
-  //   */
-  //  public static function delete() {
-  //    return new Delete('Afform');
-  //  }
 
   /**
    * @return array

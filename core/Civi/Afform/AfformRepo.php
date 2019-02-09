@@ -1,20 +1,22 @@
 <?php
+namespace Civi\Afform;
 
-namespace Civi\Api4\Traits;
+use Civi\Api4\ActionInterface\QueryInterface;
 
-use Civi\Api4\Generic\ArrayRetrievalTrait;
+class AfformRepo {
 
-trait AfformCrudTrait {
-
-  use ArrayRetrievalTrait;
-
-  public function getObjects() {
+  /**
+   * @param QueryInterface $queryDefn
+   * @return array
+   */
+  public function getAll($queryDefn) {
     /** @var \CRM_Afform_AfformScanner $scanner */
     $scanner = \Civi::service('afform_scanner');
     $converter = new \CRM_Afform_ArrayHtml();
 
-    if (count($this->where) === 1 && $this->where[0][0] === 'name' && $this->where[0][1] == '=') {
-      $names = [$this->where[0][2]];
+    $where = $queryDefn->getWhere();
+    if (count($where) === 1 && $where[0][0] === 'name' && $where[0][1] == '=') {
+      $names = [$where[0][2]];
     }
     else {
       $names = array_keys($scanner->findFilePaths());
@@ -31,19 +33,20 @@ trait AfformCrudTrait {
       $values[] = $record;
     }
 
-    return $this->processArrayData($values);
+    return $values;
   }
 
   /**
    * Write a record as part of a create/update action.
    *
+   * @param UpdateInterface|... $request
    * @param array $record
    *   The record to write to the DB.
    * @return array
    *   The record after being written to the DB (e.g. including newly assigned "id").
    * @throws \API_Exception
    */
-  protected function writeObject($record) {
+  public function save($request, $record) {
     /** @var \CRM_Afform_AfformScanner $scanner */
     $scanner = \Civi::service('afform_scanner');
     $converter = new \CRM_Afform_ArrayHtml();
@@ -66,7 +69,7 @@ trait AfformCrudTrait {
 
     // Create or update *.aff.json.
     $orig = \Civi\Api4\Afform::get()
-      ->setCheckPermissions($this->getCheckPermissions())
+      ->setCheckPermissions($request->getCheckPermissions())
       ->addWhere('name', '=', $name)
       ->execute();
 
@@ -93,6 +96,37 @@ trait AfformCrudTrait {
     // FIXME if asset-caching is enabled, then flush the asset cache.
 
     return $updates;
+  }
+
+  /**
+   * @param QueryInterface $request
+   * @param array $afform
+   * @return array
+   * @throws \API_Exception
+   */
+  public function revert($request, $afform) {
+    $scanner = \Civi::service('afform_scanner');
+    $files = [
+      \CRM_Afform_AfformScanner::METADATA_FILE,
+      \CRM_Afform_AfformScanner::LAYOUT_FILE
+    ];
+
+    foreach ($files as $file) {
+      $metaPath = $scanner->createSiteLocalPath($afform['name'], $file);
+      if (file_exists($metaPath)) {
+        if (!@unlink($metaPath)) {
+          throw new \API_Exception("Failed to remove afform overrides in $file");
+        }
+      }
+    }
+
+    // We may have changed list of files covered by the cache.
+    $scanner->clear();
+
+    // FIXME if `server_route` changes, then flush the menu cache.
+    // FIXME if asset-caching is enabled, then flush the asset cache
+
+    return $afform;
   }
 
 }
